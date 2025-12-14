@@ -2404,3 +2404,15 @@ a {
     width: 100%;
   }
 }
+
+/* Google Login Wrapper */
+.google-login-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.google-login-wrapper > div {
+  width: 100% !important;
+}
+

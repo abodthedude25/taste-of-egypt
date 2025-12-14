@@ -2,125 +2,208 @@
 
 Authentic Egyptian cuisine ordering website for Calgary, Alberta.
 
-## Project Structure
+## Quick Start (Development Mode)
 
-```
-taste-of-egypt-final/
-├── public/
-│   └── images/           # Menu item images
-├── src/
-│   ├── components/
-│   │   ├── ui/           # Reusable UI components
-│   │   │   ├── Icons.jsx
-│   │   │   └── Notification.jsx
-│   │   ├── layout/       # Layout components
-│   │   │   ├── Header.jsx
-│   │   │   └── Footer.jsx
-│   │   ├── Hero.jsx
-│   │   └── MenuItemCard.jsx
-│   ├── pages/            # Page components
-│   │   ├── HomePage.jsx
-│   │   ├── MenuPage.jsx
-│   │   ├── CartPage.jsx
-│   │   ├── CheckoutPage.jsx
-│   │   ├── OrderConfirmationPage.jsx
-│   │   ├── MyOrdersPage.jsx
-│   │   ├── LoginPage.jsx
-│   │   ├── AdminLoginPage.jsx
-│   │   ├── AdminDashboard.jsx
-│   │   ├── AboutPage.jsx
-│   │   └── ContactPage.jsx
-│   ├── context/
-│   │   └── AppContext.jsx  # Global state management
-│   ├── data/
-│   │   └── menuItems.js    # Menu data & constants
-│   ├── App.jsx             # Main app with routing
-│   ├── main.jsx            # Entry point
-│   └── index.css           # All styles
-├── index.html
-├── package.json
-└── vite.config.js
+```bash
+npm install
+npm run dev
 ```
 
-## Quick Start
+The app works immediately in dev mode with mock authentication. For production, follow the setup guides below.
 
-1. **Install dependencies:**
-   ```bash
-   npm install
+---
+
+## Production Setup
+
+### 1. Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or select existing)
+3. Navigate to **APIs & Services > Credentials**
+4. Click **Create Credentials > OAuth client ID**
+5. Select **Web application**
+6. Add authorized JavaScript origins:
+   - `http://localhost:5173` (development)
+   - `https://yourdomain.com` (production)
+7. Copy your **Client ID**
+
+### 2. EmailJS Setup
+
+1. Sign up at [EmailJS](https://www.emailjs.com/) (free: 200 emails/month)
+2. **Add Email Service:**
+   - Dashboard > Email Services > Add New Service
+   - Connect your Gmail/Outlook/etc.
+   - Note your **Service ID**
+
+3. **Create Email Templates:**
+
+   **Template 1: Order Confirmation** (`template_order_confirm`)
+   ```
+   Subject: Order {{order_id}} Confirmed - {{restaurant_name}}
+   
+   Hi {{to_name}},
+   
+   Thank you for your order!
+   
+   Order #: {{order_id}}
+   Type: {{order_type}}
+   
+   Items:
+   {{order_items}}
+   
+   Subtotal: {{subtotal}}
+   Delivery: {{delivery_fee}}
+   Tax: {{tax}}
+   Total: {{total}}
+   
+   {{#if delivery_address}}
+   Delivery to: {{delivery_address}}
+   {{/if}}
+   
+   Scheduled: {{scheduled_time}}
+   
+   💳 PAYMENT INSTRUCTIONS:
+   Send e-Transfer to: {{etransfer_email}}
+   Reference: {{order_id}}
+   
+   Questions? Call {{restaurant_phone}}
+   
+   {{restaurant_name}}
    ```
 
-2. **Start development server:**
-   ```bash
-   npm run dev
+   **Template 2: Status Update** (`template_status_update`)
+   ```
+   Subject: Order {{order_id}} - {{new_status}}
+   
+   Hi {{to_name}},
+   
+   {{status_message}}
+   
+   Order #: {{order_id}}
+   Status: {{new_status}}
+   
+   Questions? Call {{restaurant_phone}}
+   
+   {{restaurant_name}}
    ```
 
-3. **Open in browser:**
-   Navigate to `http://localhost:5173`
+   **Template 3: Admin Notification** (`template_admin_notify`)
+   ```
+   Subject: 🔔 New Order {{order_id}}
+   
+   NEW ORDER RECEIVED!
+   
+   Order #: {{order_id}}
+   Customer: {{customer_name}}
+   Email: {{customer_email}}
+   Phone: {{customer_phone}}
+   
+   Type: {{order_type}}
+   First Order: {{is_first_order}}
+   
+   Items:
+   {{order_items}}
+   
+   Total: {{total}}
+   
+   {{#if delivery_address}}
+   Deliver to: {{delivery_address}}
+   {{/if}}
+   
+   Scheduled: {{scheduled_time}}
+   
+   Notes: {{special_instructions}}
+   ```
 
-## Features
+4. Copy your **Public Key** from Account > General
 
-### Customer Features
-- 🍽️ Browse authentic Egyptian menu (11 items)
-- 🛒 Add items to cart with quantity controls
-- 📍 Delivery or pickup options
-- 📅 Schedule orders in advance
-- 🎁 First order gets FREE delivery
-- 📧 Email notifications (console logged)
-- 📋 View order history
+### 3. Configure Environment
 
-### Admin Features
-- 📊 Dashboard with live stats
-- ✅ Approve/decline pending orders
-- 🔄 Update order status workflow
-- 🔍 Filter orders by status
-
-### Admin Login
-- **URL:** Click "Staff Portal" in footer
-- **Email:** admin@tasteofegypt.ca
-- **Password:** admin123
-
-## Order Status Flow
-
+```bash
+cp .env.example .env
 ```
-pending → confirmed → preparing → ready → completed
-    ↓
-cancelled
+
+Edit `.env` with your values:
+```
+VITE_GOOGLE_CLIENT_ID=123456789-abc.apps.googleusercontent.com
+VITE_EMAILJS_SERVICE_ID=service_xxxxxxx
+VITE_EMAILJS_PUBLIC_KEY=your_public_key
+VITE_EMAILJS_TEMPLATE_ORDER=template_order_confirm
+VITE_EMAILJS_TEMPLATE_STATUS=template_status_update
+VITE_EMAILJS_TEMPLATE_ADMIN=template_admin_notify
 ```
 
-## Customization
-
-### Menu Items
-Edit `src/data/menuItems.js` to add/modify menu items.
-
-### Styling
-All styles are in `src/index.css` with CSS variables:
-- `--egyptian-gold`: #D4AF37
-- `--nile-blue`: #1E3A5F
-- `--desert-sand`: #F5E6D3
-- `--papyrus`: #FDF5E6
-- `--terracotta`: #E07B53
-
-### Adding Pages
-1. Create new file in `src/pages/`
-2. Export from `src/pages/index.js`
-3. Add route in `src/App.jsx`
-
-## Production Deployment
-
-Before deploying to production:
-
-1. **Google OAuth:** Replace mock auth with real Google OAuth
-2. **Email Service:** Integrate SendGrid, Mailgun, or similar
-3. **Database:** Add backend with real database
-4. **Payment:** Add payment verification for e-Transfer
-
-## Build for Production
+### 4. Build & Deploy
 
 ```bash
 npm run build
 ```
 
-Output will be in `dist/` folder.
+Deploy the `dist/` folder to your hosting (Vercel, Netlify, etc.)
+
+---
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── ui/           # Icons, Notification
+│   ├── layout/       # Header, Footer
+│   ├── Hero.jsx
+│   └── MenuItemCard.jsx
+├── pages/            # All page components
+├── context/          # AppContext (state management)
+├── services/         # Email service
+├── config/           # API keys configuration
+└── data/             # Menu items
+```
+
+## Features
+
+- 🍽️ 11 authentic Egyptian dishes
+- 🛒 Full cart system
+- 📍 Delivery & pickup options
+- 🎁 First order free delivery
+- 📧 Real email notifications
+- 🔐 Google OAuth authentication
+- 👨‍💼 Admin dashboard
+
+## Admin Access
+
+- **URL:** Footer > Staff Portal
+- **Email:** admin@tasteofegypt.ca
+- **Password:** admin123
+
+## Customization
+
+### Update Restaurant Info
+Edit `src/config/index.js`:
+```javascript
+export const RESTAURANT_CONFIG = {
+  name: 'Your Restaurant',
+  email: 'orders@yourdomain.com',
+  phone: '(403) 555-0123',
+  address: '123 Main St, Calgary',
+  eTransferEmail: 'pay@yourdomain.com'
+};
+```
+
+### Add Menu Items
+Edit `src/data/menuItems.js`
+
+### Styling
+Edit `src/index.css` - uses CSS variables for theming
+
+---
+
+## Tech Stack
+
+- React 18
+- Vite
+- Google OAuth (@react-oauth/google)
+- EmailJS (@emailjs/browser)
+- CSS (no framework)
 
 ---
 

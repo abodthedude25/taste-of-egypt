@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { menuItems, DELIVERY_FEE, TAX_RATE } from '../data/menuItems';
+import { sendOrderConfirmation, sendStatusUpdate, sendAdminNotification } from '../services/emailService';
 
 const AppContext = createContext();
 
@@ -105,12 +106,15 @@ export function AppProvider({ children }) {
     showNotification('Logged out successfully');
   };
 
-  // Order functions
-  const placeOrder = (orderDetails) => {
+  // Order functions with email integration
+  const placeOrder = async (orderDetails) => {
+    const totals = getCartTotal(user.isFirstOrder, orderDetails.orderType);
+    
     const order = {
       id: `ORD-${Date.now()}`,
       ...orderDetails,
       items: [...cart],
+      totals,
       userId: user.id,
       userEmail: user.email,
       userName: user.name,
@@ -127,16 +131,42 @@ export function AppProvider({ children }) {
     }
     
     clearCart();
-    showNotification('Order placed! Awaiting confirmation.');
+    
+    // Send email notifications (non-blocking)
+    sendOrderConfirmation(order).then(result => {
+      if (result.success) {
+        console.log('✅ Customer confirmation email sent');
+      }
+    });
+    
+    sendAdminNotification(order).then(result => {
+      if (result.success) {
+        console.log('✅ Admin notification email sent');
+      }
+    });
+    
+    showNotification('Order placed! Check your email for confirmation.');
     return order;
   };
 
-  const updateOrderStatus = (orderId, status) => {
+  const updateOrderStatus = async (orderId, status) => {
+    const order = orders.find(o => o.id === orderId);
+    
     setOrders(prev => prev.map(o => 
       o.id === orderId 
         ? { ...o, status, updatedAt: new Date().toISOString() } 
         : o
     ));
+    
+    // Send status update email to customer (non-blocking)
+    if (order) {
+      sendStatusUpdate({ ...order, status }, status).then(result => {
+        if (result.success) {
+          console.log(`✅ Status update email sent for ${orderId}`);
+        }
+      });
+    }
+    
     showNotification(`Order ${orderId} ${status}`);
   };
 
