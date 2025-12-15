@@ -19,7 +19,24 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors()); 
+// Middleware
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://taste-of-egypt.vercel.app',
+  process.env.CLIENT_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now
+    }
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Request logging (development)
