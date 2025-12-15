@@ -6,7 +6,7 @@ import { Icons } from '../components/ui/Icons';
 import { GOOGLE_CLIENT_ID, isConfigured } from '../config';
 
 export function LoginPage() {
-  const { login, setCurrentPage, showNotification } = useApp();
+  const { login, register, googleLogin, setCurrentPage, showNotification } = useApp();
   const [isSignUp, setIsSignUp] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -14,22 +14,29 @@ export function LoginPage() {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Handle successful Google login
-  const handleGoogleSuccess = (credentialResponse) => {
+  const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      setLoading(true);
+      setError('');
       const decoded = jwtDecode(credentialResponse.credential);
-      login({
+      
+      await googleLogin({
         name: decoded.name,
         email: decoded.email,
         picture: decoded.picture,
-        provider: 'google',
         googleId: decoded.sub
       });
+      
       setCurrentPage('menu');
-    } catch (error) {
-      console.error('Google login error:', error);
-      showNotification('Failed to sign in with Google. Please try again.', 'error');
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError(err.message || 'Failed to sign in with Google');
+      showNotification('Failed to sign in with Google', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -39,42 +46,59 @@ export function LoginPage() {
   };
 
   // Fallback for development mode without Google OAuth configured
-  const handleDevGoogleLogin = () => {
-    login({
-      name: 'Test User',
-      email: 'testuser@gmail.com',
-      provider: 'google'
-    });
-    setCurrentPage('menu');
-    showNotification('Logged in with test account (dev mode)', 'info');
+  const handleDevGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      await googleLogin({
+        name: 'Test User',
+        email: 'testuser@gmail.com',
+        provider: 'google'
+      });
+      setCurrentPage('menu');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle email/password submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // In production, you would validate against a backend
-    // For now, we just create/login the user
-    login({
-      name: formData.name || formData.email.split('@')[0],
-      email: formData.email,
-      provider: 'email'
-    });
-    
-    setLoading(false);
-    setCurrentPage('menu');
+    try {
+      if (isSignUp) {
+        await register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        });
+      } else {
+        await login({
+          email: formData.email,
+          password: formData.password
+        });
+      }
+      setCurrentPage('menu');
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Google OAuth wrapper - only render if configured
   const GoogleLoginButton = () => {
     if (!isConfigured()) {
-      // Development fallback
       return (
-        <button className="btn btn-google" onClick={handleDevGoogleLogin}>
+        <button 
+          className="btn btn-google" 
+          onClick={handleDevGoogleLogin}
+          disabled={loading}
+        >
           <Icons.Google />
           Continue with Google (Dev Mode)
         </button>
@@ -114,6 +138,20 @@ export function LoginPage() {
             </p>
           </div>
           
+          {/* Error message */}
+          {error && (
+            <div className="error-message" style={{
+              background: '#fee',
+              color: '#c00',
+              padding: '10px 15px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px'
+            }}>
+              {error}
+            </div>
+          )}
+          
           {/* Google Login */}
           <GoogleLoginButton />
           
@@ -132,6 +170,7 @@ export function LoginPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Ahmed Mohamed"
                   required
+                  disabled={loading}
                 />
               </div>
             )}
@@ -144,6 +183,7 @@ export function LoginPage() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="you@example.com"
                 required
+                disabled={loading}
               />
             </div>
             
@@ -156,6 +196,7 @@ export function LoginPage() {
                 placeholder="••••••••"
                 required
                 minLength={6}
+                disabled={loading}
               />
             </div>
             
@@ -179,7 +220,7 @@ export function LoginPage() {
           {/* Toggle Sign In / Sign Up */}
           <p className="toggle-auth">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-            <button onClick={() => setIsSignUp(!isSignUp)}>
+            <button onClick={() => { setIsSignUp(!isSignUp); setError(''); }}>
               {isSignUp ? 'Sign In' : 'Sign Up'}
             </button>
           </p>

@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { menuItems, DELIVERY_FEE, TAX_RATE } from '../data/menuItems';
-import { sendOrderConfirmation, sendStatusUpdate, sendAdminNotification } from '../services/emailService';
+import { menuItems as localMenuItems, DELIVERY_FEE, TAX_RATE } from '../data/menuItems';
+import { authAPI, ordersAPI, adminAPI, setToken, removeToken } from '../services/api';
 
 const AppContext = createContext();
+
+// Check if we should use API (backend connected)
+const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -16,27 +19,61 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [menuItems, setMenuItems] = useState(localMenuItems);
   const [currentPage, setCurrentPage] = useState('home');
   const [notification, setNotification] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Load saved data from localStorage on mount
+  // Initialize: Load user from token or localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('tasteOfEgypt_user');
-    const savedCart = localStorage.getItem('tasteOfEgypt_cart');
-    const savedOrders = localStorage.getItem('tasteOfEgypt_orders');
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('tasteOfEgypt_token');
+      const savedCart = localStorage.getItem('tasteOfEgypt_cart');
+      
+      if (savedCart) setCart(JSON.parse(savedCart));
+      
+      if (token && USE_API) {
+        try {
+          const { user } = await authAPI.getProfile();
+          setUser(user);
+          setIsAdmin(user.isAdmin);
+          
+          // Load orders from API
+          if (!user.isAdmin) {
+            const { orders } = await ordersAPI.getAll();
+            setOrders(orders);
+          }
+        } catch (error) {
+          console.error('Auth initialization failed:', error);
+          removeToken();
+        }
+      } else if (!USE_API) {
+        // Fallback to localStorage for dev mode
+        const savedUser = localStorage.getItem('tasteOfEgypt_user');
+        const savedOrders = localStorage.getItem('tasteOfEgypt_orders');
+        if (savedUser) setUser(JSON.parse(savedUser));
+        if (savedOrders) setOrders(JSON.parse(savedOrders));
+      }
+      
+      setLoading(false);
+    };
     
-    if (savedUser) setUser(JSON.parse(savedUser));
-    if (savedCart) setCart(JSON.parse(savedCart));
-    if (savedOrders) setOrders(JSON.parse(savedOrders));
+    initializeAuth();
   }, []);
 
-  // Save data to localStorage when changed
+  // Save cart to localStorage
   useEffect(() => {
-    if (user) localStorage.setItem('tasteOfEgypt_user', JSON.stringify(user));
     localStorage.setItem('tasteOfEgypt_cart', JSON.stringify(cart));
-    localStorage.setItem('tasteOfEgypt_orders', JSON.stringify(orders));
-  }, [user, cart, orders]);
+  }, [cart]);
+
+  // Save to localStorage in dev mode
+  useEffect(() => {
+    if (!USE_API) {
+      if (user) localStorage.setItem('tasteOfEgypt_user', JSON.stringify(user));
+      localStorage.setItem('tasteOfEgypt_orders', JSON.stringify(orders));
+    }
+  }, [user, orders]);
 
   // Notification helpers
   const showNotification = (message, type = 'success') => {
@@ -83,97 +120,202 @@ export function AppProvider({ children }) {
   };
 
   // Auth functions
-  const login = (userData) => {
-    const newUser = {
-      ...userData,
-      id: Date.now().toString(),
-      isFirstOrder: !localStorage.getItem(`tasteOfEgypt_ordered_${userData.email}`),
-      createdAt: new Date().toISOString()
-    };
-    setUser(newUser);
-    showNotification(
-      newUser.isFirstOrder 
-        ? 'Welcome! Enjoy FREE delivery on your first order!' 
-        : `Welcome back, ${newUser.name}!`
-    );
+  const register = async (userData) => {
+    if (USE_API) {
+      const { token, user } = await authAPI.register(userData);
+      setToken(token);
+      setUser(user);
+      showNotification(
+        user.isFirstOrder 
+          ? 'Welcome! Enjoy FREE delivery on your first order!' 
+          : `Welcome, ${user.name}!`
+      );
+      return user;
+    } else {
+      // Fallback for dev mode
+      return login(userData);
+    }
+  };
+
+  const login = async (credentials) => {
+    if (USE_API) {
+      const { token, user } = await authAPI.login(credentials);
+      setToken(token);
+      setUser(user);
+      
+      // Load user's orders
+      const { orders } = await ordersAPI.getAll();
+      setOrders(orders);
+      
+      showNotification(`Welcome back, ${user.name}!`);
+      return user;
+    } else {
+      // Fallback for dev mode (localStorage)
+      const newUser = {
+        ...credentials,
+        id: Date.now().toString(),
+        name: credentials.name || credentials.email.split('@')[0],
+        isFirstOrder: !localStorage.getItem(`tasteOfEgypt_ordered_${credentials.email}`),
+        createdAt: new Date().toISOString()
+      };
+      setUser(newUser);
+      showNotification(
+        newUser.isFirstOrder 
+          ? 'Welcome! Enjoy FREE delivery on your first order!' 
+          : `Welcome back, ${newUser.name}!`
+      );
+      return newUser;
+    }
+  };
+
+  const googleLogin = async (googleData) => {
+    if (USE_API) {
+      const { token, user } = await authAPI.googleLogin(googleData);
+      setToken(token);
+      setUser(user);
+      
+      const { orders } = await ordersAPI.getAll();
+      setOrders(orders);
+      
+      showNotification(`Welcome, ${user.name}!`);
+      return user;
+    } else {
+      return login(googleData);
+    }
+  };
+
+  const adminLogin = async (credentials) => {
+    if (USE_API) {
+      const { token, user } = await authAPI.adminLogin(credentials);
+      setToken(token);
+      setUser(user);
+      setIsAdmin(true);
+      showNotification('Admin login successful');
+      return user;
+    } else {
+      // Dev mode admin check
+      if (credentials.email === 'admin@tasteofegypt.ca' && credentials.password === 'admin123') {
+        setIsAdmin(true);
+        showNotification('Admin login successful');
+        return { isAdmin: true };
+      }
+      throw new Error('Invalid admin credentials');
+    }
   };
 
   const logout = () => {
     setUser(null);
     setIsAdmin(false);
+    setOrders([]);
+    removeToken();
     localStorage.removeItem('tasteOfEgypt_user');
     setCurrentPage('home');
     showNotification('Logged out successfully');
   };
 
-  // Order functions with email integration
+  // Order functions
   const placeOrder = async (orderDetails) => {
-    const totals = getCartTotal(user.isFirstOrder, orderDetails.orderType);
+    const totals = getCartTotal(user?.isFirstOrder, orderDetails.orderType);
     
-    const order = {
-      id: `ORD-${Date.now()}`,
+    const orderData = {
       ...orderDetails,
-      items: [...cart],
-      totals,
-      userId: user.id,
-      userEmail: user.email,
-      userName: user.name,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      isFirstOrder: user.isFirstOrder
+      items: cart.map(item => ({
+        menuItemId: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image
+      })),
+      subtotal: totals.subtotal,
+      deliveryFee: totals.deliveryFee,
+      tax: totals.tax,
+      total: totals.total,
+      isFirstOrder: user?.isFirstOrder
     };
     
-    setOrders(prev => [...prev, order]);
-    
-    if (user.isFirstOrder) {
-      localStorage.setItem(`tasteOfEgypt_ordered_${user.email}`, 'true');
-      setUser(prev => ({ ...prev, isFirstOrder: false }));
+    if (USE_API) {
+      const { order } = await ordersAPI.create(orderData);
+      setOrders(prev => [order, ...prev]);
+      
+      if (user?.isFirstOrder) {
+        setUser(prev => ({ ...prev, isFirstOrder: false }));
+      }
+      
+      clearCart();
+      showNotification('Order placed! Check your email for confirmation.');
+      return order;
+    } else {
+      // Dev mode - localStorage
+      const order = {
+        orderId: `ORD-${Date.now()}`,
+        ...orderData,
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      
+      setOrders(prev => [order, ...prev]);
+      
+      if (user?.isFirstOrder) {
+        localStorage.setItem(`tasteOfEgypt_ordered_${user.email}`, 'true');
+        setUser(prev => ({ ...prev, isFirstOrder: false }));
+      }
+      
+      clearCart();
+      showNotification('Order placed! Awaiting confirmation.');
+      return order;
     }
-    
-    clearCart();
-    
-    // Send email notifications (non-blocking)
-    sendOrderConfirmation(order).then(result => {
-      if (result.success) {
-        console.log('✅ Customer confirmation email sent');
-      }
-    });
-    
-    sendAdminNotification(order).then(result => {
-      if (result.success) {
-        console.log('✅ Admin notification email sent');
-      }
-    });
-    
-    showNotification('Order placed! Check your email for confirmation.');
-    return order;
   };
 
   const updateOrderStatus = async (orderId, status) => {
-    const order = orders.find(o => o.id === orderId);
+    if (USE_API) {
+      await adminAPI.updateOrderStatus(orderId, status);
+    }
     
     setOrders(prev => prev.map(o => 
-      o.id === orderId 
+      (o.orderId || o.id) === orderId 
         ? { ...o, status, updatedAt: new Date().toISOString() } 
         : o
     ));
     
-    // Send status update email to customer (non-blocking)
-    if (order) {
-      sendStatusUpdate({ ...order, status }, status).then(result => {
-        if (result.success) {
-          console.log(`✅ Status update email sent for ${orderId}`);
-        }
-      });
-    }
-    
     showNotification(`Order ${orderId} ${status}`);
+  };
+
+  // Admin functions
+  const fetchAllOrders = async (filters = {}) => {
+    if (USE_API) {
+      const { orders } = await adminAPI.getOrders(filters);
+      setOrders(orders);
+      return orders;
+    }
+    return orders;
+  };
+
+  const getAdminStats = async () => {
+    if (USE_API) {
+      const { stats } = await adminAPI.getStats();
+      return stats;
+    }
+    // Dev mode stats
+    return {
+      pending: orders.filter(o => o.status === 'pending').length,
+      confirmed: orders.filter(o => o.status === 'confirmed').length,
+      preparing: orders.filter(o => o.status === 'preparing').length,
+      ready: orders.filter(o => o.status === 'ready').length,
+      todayRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
+      totalOrders: orders.length
+    };
   };
 
   const value = {
     // User
     user,
     login,
+    register,
+    googleLogin,
+    adminLogin,
     logout,
     isAdmin,
     setIsAdmin,
@@ -190,6 +332,8 @@ export function AppProvider({ children }) {
     orders,
     placeOrder,
     updateOrderStatus,
+    fetchAllOrders,
+    getAdminStats,
     
     // Navigation
     currentPage,
@@ -202,7 +346,11 @@ export function AppProvider({ children }) {
     // Data
     menuItems,
     DELIVERY_FEE,
-    TAX_RATE
+    TAX_RATE,
+    
+    // State
+    loading,
+    useAPI: USE_API
   };
 
   return (

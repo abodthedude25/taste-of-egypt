@@ -3,27 +3,27 @@ import { useApp } from '../context/AppContext';
 import { Icons } from '../components/ui/Icons';
 
 export function AdminLoginPage() {
-  const { setIsAdmin, setCurrentPage, showNotification, login } = useApp();
+  const { adminLogin, setCurrentPage, showNotification } = useApp();
   const [credentials, setCredentials] = useState({
     email: '',
     password: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
     
-    // Check admin credentials
-    if (credentials.email === 'admin@tasteofegypt.ca' && credentials.password === 'admin123') {
-      login({
-        name: 'Admin',
-        email: credentials.email,
-        provider: 'email'
-      });
-      setIsAdmin(true);
+    try {
+      await adminLogin(credentials);
       setCurrentPage('admin');
-      showNotification('Welcome to the Admin Dashboard');
-    } else {
+    } catch (err) {
+      setError(err.message || 'Invalid credentials');
       showNotification('Invalid credentials', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -37,6 +37,19 @@ export function AdminLoginPage() {
             <p>Access the order management dashboard</p>
           </div>
           
+          {error && (
+            <div className="error-message" style={{
+              background: '#fee',
+              color: '#c00',
+              padding: '10px 15px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              fontSize: '14px'
+            }}>
+              {error}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Email</label>
@@ -46,6 +59,7 @@ export function AdminLoginPage() {
                 onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
                 placeholder="admin@tasteofegypt.ca"
                 required
+                disabled={loading}
               />
             </div>
             
@@ -57,11 +71,12 @@ export function AdminLoginPage() {
                 onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
             
-            <button type="submit" className="btn btn-primary btn-block">
-              Access Dashboard
+            <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+              {loading ? 'Signing in...' : 'Access Dashboard'}
             </button>
           </form>
           

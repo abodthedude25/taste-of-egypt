@@ -1,209 +1,286 @@
 # Taste of Egypt YYC 🏺
 
-Authentic Egyptian cuisine ordering website for Calgary, Alberta.
+Full-stack Egyptian cuisine ordering application for Calgary, Alberta.
 
-## Quick Start (Development Mode)
+## Tech Stack
 
-```bash
-npm install
-npm run dev
-```
-
-The app works immediately in dev mode with mock authentication. For production, follow the setup guides below.
+**Frontend:** React 18, Vite, Google OAuth  
+**Backend:** Node.js, Express, MongoDB, JWT  
+**Email:** Nodemailer (server-side)
 
 ---
 
-## Production Setup
+## Quick Start (Development)
 
-### 1. Google OAuth Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select existing)
-3. Navigate to **APIs & Services > Credentials**
-4. Click **Create Credentials > OAuth client ID**
-5. Select **Web application**
-6. Add authorized JavaScript origins:
-   - `http://localhost:5173` (development)
-   - `https://yourdomain.com` (production)
-7. Copy your **Client ID**
-
-### 2. EmailJS Setup
-
-1. Sign up at [EmailJS](https://www.emailjs.com/) (free: 200 emails/month)
-2. **Add Email Service:**
-   - Dashboard > Email Services > Add New Service
-   - Connect your Gmail/Outlook/etc.
-   - Note your **Service ID**
-
-3. **Create Email Templates:**
-
-   **Template 1: Order Confirmation** (`template_order_confirm`)
-   ```
-   Subject: Order {{order_id}} Confirmed - {{restaurant_name}}
-   
-   Hi {{to_name}},
-   
-   Thank you for your order!
-   
-   Order #: {{order_id}}
-   Type: {{order_type}}
-   
-   Items:
-   {{order_items}}
-   
-   Subtotal: {{subtotal}}
-   Delivery: {{delivery_fee}}
-   Tax: {{tax}}
-   Total: {{total}}
-   
-   {{#if delivery_address}}
-   Delivery to: {{delivery_address}}
-   {{/if}}
-   
-   Scheduled: {{scheduled_time}}
-   
-   💳 PAYMENT INSTRUCTIONS:
-   Send e-Transfer to: {{etransfer_email}}
-   Reference: {{order_id}}
-   
-   Questions? Call {{restaurant_phone}}
-   
-   {{restaurant_name}}
-   ```
-
-   **Template 2: Status Update** (`template_status_update`)
-   ```
-   Subject: Order {{order_id}} - {{new_status}}
-   
-   Hi {{to_name}},
-   
-   {{status_message}}
-   
-   Order #: {{order_id}}
-   Status: {{new_status}}
-   
-   Questions? Call {{restaurant_phone}}
-   
-   {{restaurant_name}}
-   ```
-
-   **Template 3: Admin Notification** (`template_admin_notify`)
-   ```
-   Subject: 🔔 New Order {{order_id}}
-   
-   NEW ORDER RECEIVED!
-   
-   Order #: {{order_id}}
-   Customer: {{customer_name}}
-   Email: {{customer_email}}
-   Phone: {{customer_phone}}
-   
-   Type: {{order_type}}
-   First Order: {{is_first_order}}
-   
-   Items:
-   {{order_items}}
-   
-   Total: {{total}}
-   
-   {{#if delivery_address}}
-   Deliver to: {{delivery_address}}
-   {{/if}}
-   
-   Scheduled: {{scheduled_time}}
-   
-   Notes: {{special_instructions}}
-   ```
-
-4. Copy your **Public Key** from Account > General
-
-### 3. Configure Environment
-
+### Option 1: Frontend Only (No Backend)
 ```bash
+# Install and run frontend
+npm install
+npm run dev
+```
+Works immediately with localStorage - no database needed.
+
+### Option 2: Full Stack
+```bash
+# Terminal 1: Start MongoDB (if local)
+mongod
+
+# Terminal 2: Start backend
+cd server
+npm install
+cp .env.example .env  # Edit with your values
+npm run dev
+
+# Terminal 3: Start frontend
+cd ..
 cp .env.example .env
+# Set VITE_USE_API=true in .env
+npm install
+npm run dev
 ```
-
-Edit `.env` with your values:
-```
-VITE_GOOGLE_CLIENT_ID=123456789-abc.apps.googleusercontent.com
-VITE_EMAILJS_SERVICE_ID=service_xxxxxxx
-VITE_EMAILJS_PUBLIC_KEY=your_public_key
-VITE_EMAILJS_TEMPLATE_ORDER=template_order_confirm
-VITE_EMAILJS_TEMPLATE_STATUS=template_status_update
-VITE_EMAILJS_TEMPLATE_ADMIN=template_admin_notify
-```
-
-### 4. Build & Deploy
-
-```bash
-npm run build
-```
-
-Deploy the `dist/` folder to your hosting (Vercel, Netlify, etc.)
 
 ---
 
 ## Project Structure
 
 ```
-src/
-├── components/
-│   ├── ui/           # Icons, Notification
-│   ├── layout/       # Header, Footer
-│   ├── Hero.jsx
-│   └── MenuItemCard.jsx
-├── pages/            # All page components
-├── context/          # AppContext (state management)
-├── services/         # Email service
-├── config/           # API keys configuration
-└── data/             # Menu items
+taste-of-egypt-final/
+├── src/                    # Frontend (React)
+│   ├── components/         # UI components
+│   ├── pages/              # Page components
+│   ├── context/            # Global state (AppContext)
+│   ├── services/           # API client
+│   ├── config/             # Frontend config
+│   └── data/               # Menu data
+├── server/                 # Backend (Node.js)
+│   ├── config/             # Database & app config
+│   ├── models/             # Mongoose models
+│   ├── routes/             # API routes
+│   ├── middleware/         # Auth middleware
+│   └── services/           # Email service
+└── public/                 # Static assets
 ```
-
-## Features
-
-- 🍽️ 11 authentic Egyptian dishes
-- 🛒 Full cart system
-- 📍 Delivery & pickup options
-- 🎁 First order free delivery
-- 📧 Real email notifications
-- 🔐 Google OAuth authentication
-- 👨‍💼 Admin dashboard
-
-## Admin Access
-
-- **URL:** Footer > Staff Portal
-- **Email:** admin@tasteofegypt.ca
-- **Password:** admin123
-
-## Customization
-
-### Update Restaurant Info
-Edit `src/config/index.js`:
-```javascript
-export const RESTAURANT_CONFIG = {
-  name: 'Your Restaurant',
-  email: 'orders@yourdomain.com',
-  phone: '(403) 555-0123',
-  address: '123 Main St, Calgary',
-  eTransferEmail: 'pay@yourdomain.com'
-};
-```
-
-### Add Menu Items
-Edit `src/data/menuItems.js`
-
-### Styling
-Edit `src/index.css` - uses CSS variables for theming
 
 ---
 
-## Tech Stack
+## Backend Setup
 
-- React 18
-- Vite
-- Google OAuth (@react-oauth/google)
-- EmailJS (@emailjs/browser)
-- CSS (no framework)
+### 1. MongoDB Setup
+
+**Local MongoDB:**
+```bash
+# macOS
+brew install mongodb-community
+brew services start mongodb-community
+
+# Ubuntu
+sudo apt install mongodb
+sudo systemctl start mongodb
+```
+
+**MongoDB Atlas (Cloud):**
+1. Create account at [mongodb.com/atlas](https://www.mongodb.com/atlas)
+2. Create a free cluster
+3. Get connection string: `mongodb+srv://user:pass@cluster.mongodb.net/taste-of-egypt`
+
+### 2. Configure Server Environment
+
+```bash
+cd server
+cp .env.example .env
+```
+
+Edit `server/.env`:
+```env
+PORT=5000
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017/taste-of-egypt
+
+# JWT (generate a secure random string!)
+JWT_SECRET=your-very-long-random-secret-key-here
+
+# Email (Gmail example)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+
+# Admin
+ADMIN_EMAIL=admin@tasteofegypt.ca
+ADMIN_PASSWORD=change-this-password
+```
+
+### 3. Gmail App Password Setup
+
+1. Enable 2-Factor Authentication on your Google account
+2. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+3. Generate an app password for "Mail"
+4. Use this password as `EMAIL_PASS`
+
+### 4. Start the Server
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+Server runs on `http://localhost:5000`
+
+---
+
+## Frontend Setup
+
+### 1. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+```env
+# Enable API mode
+VITE_USE_API=true
+VITE_API_URL=http://localhost:5000/api
+
+# Google OAuth (optional)
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+```
+
+### 2. Google OAuth Setup (Optional)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create project → APIs & Services → Credentials
+3. Create OAuth Client ID (Web application)
+4. Add authorized origins:
+   - `http://localhost:5173`
+   - `https://yourdomain.com` (production)
+5. Copy Client ID to `.env`
+
+### 3. Start Frontend
+
+```bash
+npm install
+npm run dev
+```
+
+Frontend runs on `http://localhost:5173`
+
+---
+
+## API Endpoints
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register new user |
+| POST | `/api/auth/login` | Login with email/password |
+| POST | `/api/auth/google` | Google OAuth login |
+| POST | `/api/auth/admin` | Admin login |
+| GET | `/api/auth/me` | Get current user |
+
+### Orders (Authenticated)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/orders` | Get user's orders |
+| POST | `/api/orders` | Create new order |
+| DELETE | `/api/orders/:id` | Cancel pending order |
+
+### Admin (Admin only)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/orders` | Get all orders |
+| PUT | `/api/admin/orders/:id/status` | Update order status |
+| GET | `/api/admin/stats` | Get dashboard stats |
+
+### Menu (Public)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/menu` | Get all menu items |
+| GET | `/api/menu/categories` | Get categories |
+
+---
+
+## Features
+
+### Customer Features
+- 🍽️ Browse 11 authentic Egyptian dishes
+- 🛒 Shopping cart with quantity controls
+- 📍 Delivery or pickup options
+- 📅 Schedule orders in advance
+- 🎁 FREE delivery on first order
+- 📧 Email confirmations
+- 📋 Order history
+
+### Admin Features
+- 📊 Real-time dashboard stats
+- ✅ Approve/decline orders
+- 🔄 Update order status
+- 📧 Automatic customer notifications
+- 🔍 Filter orders by status
+
+---
+
+## Email Notifications
+
+Customers receive emails when:
+1. **Order placed** - Confirmation with payment instructions
+2. **Order confirmed** - Payment received
+3. **Order preparing** - Kitchen started
+4. **Order ready** - Ready for pickup/delivery
+5. **Order completed** - Thank you message
+6. **Order cancelled** - Cancellation notice
+
+Admins receive:
+- New order notifications
+
+---
+
+## Deployment
+
+### Backend (Render, Railway, etc.)
+
+1. Push code to GitHub
+2. Create new Web Service
+3. Set environment variables
+4. Deploy
+
+### Frontend (Vercel, Netlify)
+
+```bash
+npm run build
+# Deploy dist/ folder
+```
+
+Set environment variables:
+```
+VITE_USE_API=true
+VITE_API_URL=https://your-api.com/api
+VITE_GOOGLE_CLIENT_ID=your_client_id
+```
+
+---
+
+## Admin Access
+
+**URL:** Footer → "Staff Portal"  
+**Default credentials:**
+- Email: `admin@tasteofegypt.ca`
+- Password: `admin123`
+
+⚠️ Change these in production via `ADMIN_EMAIL` and `ADMIN_PASSWORD` env vars.
+
+---
+
+## Development Modes
+
+| Mode | Backend | Auth | Data Storage |
+|------|---------|------|--------------|
+| `VITE_USE_API=false` | Not required | Mock | localStorage |
+| `VITE_USE_API=true` | Required | JWT | MongoDB |
 
 ---
 
